@@ -6,17 +6,11 @@ Ask any IM analytics question. Swiggster detects the domain, routes to the right
 
 ## Install
 
-**Windows:**
-```powershell
-irm https://raw.githubusercontent.com/sanskarsingh1-insta/swiggster/master/install.ps1 | iex
+```
+claude plugin marketplace add sanskarsingh1-insta/swiggster && claude plugin install swiggster@swiggster
 ```
 
-**Mac / Linux:**
-```bash
-bash <(curl -s https://raw.githubusercontent.com/sanskarsingh1-insta/swiggster/master/install.sh)
-```
-
-Restart Claude Code after install. Done.
+Restart Claude Code. Done.
 
 ---
 
