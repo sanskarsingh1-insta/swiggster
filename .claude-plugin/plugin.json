@@ -1,0 +1,22 @@
+{
+  "name": "swiggster",
+  "description": "Autonomous CEO-mode analytics agent for Swiggy Instamart. Routes to the right domain (CC/IGCC, Growth, Delivery Ops, Catalog Ops, Availability, Discovery, Pricing) without user guidance. Thinks like a CEO: business impact first, cross-domain synthesis, actionable interventions.",
+  "author": {
+    "name": "Sanskar Singh",
+    "url": "https://github.com/sanskarsingh1-insta"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/swiggster-activate.js",
+            "timeout": 5,
+            "statusMessage": "Loading Swiggster CEO mode..."
+          }
+        ]
+      }
+    ]
+  }
+}
