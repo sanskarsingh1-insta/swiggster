@@ -1,4 +1,4 @@
-# swiggster installer
+# swiggster installer — zero admin required
 # Usage: irm https://raw.githubusercontent.com/sanskarsingh1-insta/swiggster/master/install.ps1 | iex
 
 $repo   = "sanskarsingh1-insta/swiggster"
@@ -6,14 +6,32 @@ $branch = "master"
 $base   = "https://raw.githubusercontent.com/$repo/$branch"
 $claude = "$env:USERPROFILE\.claude"
 
+# ── 1. Node.js portable (no admin, no UAC) ──────────────────────────────────
+$nodeDir = "$env:USERPROFILE\.node"
+if (-not (Get-Command node -ErrorAction SilentlyContinue) -and -not (Test-Path "$nodeDir\node.exe")) {
+    Write-Host "Installing Node.js (portable, no admin)..." -ForegroundColor Yellow
+    $zip = "$env:TEMP\node-portable.zip"
+    Invoke-WebRequest -Uri "https://nodejs.org/dist/v22.15.0/node-v22.15.0-win-x64.zip" -OutFile $zip -UseBasicParsing
+    Expand-Archive -Path $zip -DestinationPath "$env:TEMP\node-extract" -Force
+    if (Test-Path $nodeDir) { Remove-Item $nodeDir -Recurse -Force }
+    Move-Item "$env:TEMP\node-extract\node-v22.15.0-win-x64" $nodeDir
+    $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    if ($userPath -notlike "*$nodeDir*") {
+        [System.Environment]::SetEnvironmentVariable("PATH", "$nodeDir;$userPath", "User")
+    }
+    $env:PATH = "$nodeDir;$env:PATH"
+    Write-Host "Node.js installed." -ForegroundColor Green
+} else {
+    Write-Host "Node.js already available." -ForegroundColor Green
+}
+
+# ── 2. Download plugin files to cache + marketplace ─────────────────────────
 $files = @(
     ".claude-plugin/plugin.json",
     "skills/swiggster/SKILL.md",
     "hooks/swiggster-activate.js",
     "references/cross-domain-signals.md"
 )
-
-# 1. Download plugin files into marketplace + cache dirs
 $hash = "a1b2c3d4e5f6"
 $dirs = @(
     "$claude\plugins\marketplaces\swiggster",
@@ -24,59 +42,26 @@ foreach ($dir in $dirs) {
     foreach ($file in $files) {
         $dest = Join-Path $dir $file
         New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null
-        try {
-            Invoke-WebRequest -Uri "$base/$file" -OutFile $dest -UseBasicParsing
-        } catch {
-            Write-Host "Warning: could not download $file" -ForegroundColor Yellow
-        }
+        Invoke-WebRequest -Uri "$base/$file" -OutFile $dest -UseBasicParsing -ErrorAction SilentlyContinue
     }
 }
 Write-Host "Plugin files installed." -ForegroundColor Green
 
-# 2. Wire into ~/.claude/settings.json
+# ── 3. Wire into settings.json ───────────────────────────────────────────────
 $settings = "$claude\settings.json"
 if (-not (Test-Path $settings)) {
     New-Item -ItemType Directory -Path $claude -Force | Out-Null
     '{}' | Set-Content $settings
 }
-
 $s = Get-Content $settings -Raw | ConvertFrom-Json
-
-if (-not $s.extraKnownMarketplaces) {
-    $s | Add-Member -NotePropertyName extraKnownMarketplaces -NotePropertyValue ([PSCustomObject]@{})
-}
+if (-not $s.extraKnownMarketplaces) { $s | Add-Member -NotePropertyName extraKnownMarketplaces -NotePropertyValue ([PSCustomObject]@{}) }
 $s.extraKnownMarketplaces | Add-Member -NotePropertyName swiggster -NotePropertyValue ([PSCustomObject]@{
     source = [PSCustomObject]@{ source = "github"; repo = $repo }
 }) -Force
-
-if (-not $s.enabledPlugins) {
-    $s | Add-Member -NotePropertyName enabledPlugins -NotePropertyValue ([PSCustomObject]@{})
-}
+if (-not $s.enabledPlugins) { $s | Add-Member -NotePropertyName enabledPlugins -NotePropertyValue ([PSCustomObject]@{}) }
 $s.enabledPlugins | Add-Member -NotePropertyName "swiggster@swiggster" -NotePropertyValue $true -Force
-
 $s | ConvertTo-Json -Depth 10 | Set-Content $settings
 Write-Host "settings.json updated." -ForegroundColor Green
 
-# 3. Node.js (needed for session-start hook — optional)
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing Node.js via nvm (no admin required)..." -ForegroundColor Yellow
-    $nvmInstaller = "$env:TEMP\nvm-setup.exe"
-    try {
-        Invoke-WebRequest -Uri "https://github.com/coreybutler/nvm-windows/releases/latest/download/nvm-setup.exe" -OutFile $nvmInstaller -UseBasicParsing
-        Start-Process $nvmInstaller -ArgumentList "/SILENT" -Wait
-        $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" +
-                    [System.Environment]::GetEnvironmentVariable("PATH","User")
-        if (Get-Command nvm -ErrorAction SilentlyContinue) {
-            nvm install lts | Out-Null
-            nvm use lts   | Out-Null
-            Write-Host "Node.js installed." -ForegroundColor Green
-        }
-    } catch {
-        Write-Host "Node.js install skipped (optional)." -ForegroundColor Cyan
-    }
-} else {
-    Write-Host "Node.js already installed." -ForegroundColor Green
-}
-
 Write-Host ""
-Write-Host "Done. Restart Claude Code to activate swiggster." -ForegroundColor Green
+Write-Host "Done! Restart Claude Code to activate swiggster." -ForegroundColor Green

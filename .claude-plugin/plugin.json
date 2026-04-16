@@ -11,7 +11,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -Command \"Get-Content '${CLAUDE_PLUGIN_ROOT}/skills/swiggster/SKILL.md' -Raw\" 2>/dev/null || cat \"${CLAUDE_PLUGIN_ROOT}/skills/swiggster/SKILL.md\" 2>/dev/null || echo 'SWIGGSTER ACTIVE'",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/swiggster-activate.js\" 2>/dev/null || \"$HOME/.node/node\" \"${CLAUDE_PLUGIN_ROOT}/hooks/swiggster-activate.js\" 2>/dev/null || echo 'SWIGGSTER ACTIVE'",
             "timeout": 5,
             "statusMessage": "Loading Swiggster..."
           }
