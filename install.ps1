@@ -1,10 +1,42 @@
 # swiggster installer
 # Usage: irm https://raw.githubusercontent.com/sanskarsingh1-insta/swiggster/master/install.ps1 | iex
 
-# Step 1: Wire swiggster into ~/.claude/settings.json (no dependencies needed)
-$settings = "$env:USERPROFILE\.claude\settings.json"
+$repo   = "sanskarsingh1-insta/swiggster"
+$branch = "master"
+$base   = "https://raw.githubusercontent.com/$repo/$branch"
+$claude = "$env:USERPROFILE\.claude"
+
+$files = @(
+    ".claude-plugin/plugin.json",
+    "skills/swiggster/SKILL.md",
+    "hooks/swiggster-activate.js",
+    "references/cross-domain-signals.md"
+)
+
+# 1. Download plugin files into marketplace + cache dirs
+$hash = "a1b2c3d4e5f6"
+$dirs = @(
+    "$claude\plugins\marketplaces\swiggster",
+    "$claude\plugins\cache\swiggster\swiggster\$hash"
+)
+
+foreach ($dir in $dirs) {
+    foreach ($file in $files) {
+        $dest = Join-Path $dir $file
+        New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null
+        try {
+            Invoke-WebRequest -Uri "$base/$file" -OutFile $dest -UseBasicParsing
+        } catch {
+            Write-Host "Warning: could not download $file" -ForegroundColor Yellow
+        }
+    }
+}
+Write-Host "Plugin files installed." -ForegroundColor Green
+
+# 2. Wire into ~/.claude/settings.json
+$settings = "$claude\settings.json"
 if (-not (Test-Path $settings)) {
-    New-Item -ItemType Directory -Path "$env:USERPROFILE\.claude" -Force | Out-Null
+    New-Item -ItemType Directory -Path $claude -Force | Out-Null
     '{}' | Set-Content $settings
 }
 
@@ -14,7 +46,7 @@ if (-not $s.extraKnownMarketplaces) {
     $s | Add-Member -NotePropertyName extraKnownMarketplaces -NotePropertyValue ([PSCustomObject]@{})
 }
 $s.extraKnownMarketplaces | Add-Member -NotePropertyName swiggster -NotePropertyValue ([PSCustomObject]@{
-    source = [PSCustomObject]@{ source = "github"; repo = "sanskarsingh1-insta/swiggster" }
+    source = [PSCustomObject]@{ source = "github"; repo = $repo }
 }) -Force
 
 if (-not $s.enabledPlugins) {
@@ -23,30 +55,27 @@ if (-not $s.enabledPlugins) {
 $s.enabledPlugins | Add-Member -NotePropertyName "swiggster@swiggster" -NotePropertyValue $true -Force
 
 $s | ConvertTo-Json -Depth 10 | Set-Content $settings
-Write-Host "Swiggster registered." -ForegroundColor Green
+Write-Host "settings.json updated." -ForegroundColor Green
 
-# Step 2: Node.js — needed for session-start hook (optional but recommended)
-if (Get-Command node -ErrorAction SilentlyContinue) {
-    Write-Host "Node.js already installed." -ForegroundColor Green
-} else {
-    Write-Host "Installing Node.js (no admin required)..." -ForegroundColor Yellow
-
-    # Install via nvm-windows (no UAC needed)
+# 3. Node.js (needed for session-start hook — optional)
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing Node.js via nvm (no admin required)..." -ForegroundColor Yellow
     $nvmInstaller = "$env:TEMP\nvm-setup.exe"
     try {
         Invoke-WebRequest -Uri "https://github.com/coreybutler/nvm-windows/releases/latest/download/nvm-setup.exe" -OutFile $nvmInstaller -UseBasicParsing
         Start-Process $nvmInstaller -ArgumentList "/SILENT" -Wait
-        # Refresh PATH
         $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" +
                     [System.Environment]::GetEnvironmentVariable("PATH","User")
         if (Get-Command nvm -ErrorAction SilentlyContinue) {
-            nvm install lts
-            nvm use lts
-            Write-Host "Node.js installed via nvm." -ForegroundColor Green
+            nvm install lts | Out-Null
+            nvm use lts   | Out-Null
+            Write-Host "Node.js installed." -ForegroundColor Green
         }
     } catch {
-        Write-Host "Node.js install skipped (optional). Swiggster skill still works without it." -ForegroundColor Cyan
+        Write-Host "Node.js install skipped (optional)." -ForegroundColor Cyan
     }
+} else {
+    Write-Host "Node.js already installed." -ForegroundColor Green
 }
 
 Write-Host ""
