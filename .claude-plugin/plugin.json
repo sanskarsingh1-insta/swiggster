@@ -11,9 +11,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/swiggster-activate.js",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/swiggster-activate.js 2>/dev/null || echo 'SWIGGSTER ACTIVE'",
             "timeout": 5,
-            "statusMessage": "Loading Swiggster CEO mode..."
+            "statusMessage": "Loading Swiggster..."
           }
         ]
       }
